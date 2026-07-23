@@ -29,6 +29,7 @@ import {
   Database,
   KeyRound,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 function Logo() {
   const { resolvedTheme } = useTheme()
@@ -62,6 +63,7 @@ function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter()
   const { isSignedIn } = useAuth()
   const { user } = useUser()
   const currentUser = useQuery(api.users.current)
@@ -88,6 +90,10 @@ export default function DashboardPage() {
 
   const userInDb = currentUser !== undefined && currentUser !== null
   const isLoadingUser = currentUser === undefined
+  if (isSignedIn == false) {
+    router.push("/")
+    return null
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

@@ -8,8 +8,14 @@
  * @module
  */
 
+import type * as connections from "../connections.js";
+import type * as credentials from "../credentials.js";
+import type * as executions from "../executions.js";
 import type * as http from "../http.js";
+import type * as nodes from "../nodes.js";
+import type * as responses from "../responses.js";
 import type * as users from "../users.js";
+import type * as workflows from "../workflows.js";
 
 import type {
   ApiFromModules,
@@ -18,8 +24,14 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  connections: typeof connections;
+  credentials: typeof credentials;
+  executions: typeof executions;
   http: typeof http;
+  nodes: typeof nodes;
+  responses: typeof responses;
   users: typeof users;
+  workflows: typeof workflows;
 }>;
 
 /**
