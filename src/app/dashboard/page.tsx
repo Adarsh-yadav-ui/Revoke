@@ -3,15 +3,25 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { useEffect, useState } from "react"
+import { useSyncExternalStore, useState, useEffect } from "react"
 import { useAuth, useUser, UserButton } from "@clerk/nextjs"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { ModeToggle } from "@/components/mode-toggle"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import {
   Table,
   TableBody,
@@ -21,23 +31,26 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  CheckCircle2,
-  XCircle,
+  Plus,
+  Workflow,
+  FileText,
   ArrowLeft,
-  RefreshCw,
-  Users,
-  Database,
-  KeyRound,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
+function useIsClient() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  )
+}
+
 function Logo() {
   const { resolvedTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+  const isClient = useIsClient()
 
-  useEffect(() => setMounted(true), [])
-
-  if (!mounted) {
+  if (!isClient) {
     return <div className="h-8 w-24" />
   }
 
@@ -53,27 +66,19 @@ function Logo() {
   )
 }
 
-function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <Badge variant={ok ? "default" : "destructive"} className="gap-1">
-      {ok ? <CheckCircle2 className="size-3" /> : <XCircle className="size-3" />}
-      {label}
-    </Badge>
-  )
-}
-
 export default function DashboardPage() {
   const router = useRouter()
   const { isSignedIn } = useAuth()
   const { user } = useUser()
   const currentUser = useQuery(api.users.current)
-  const allUsers = useQuery(api.users.getUsers)
+  const workflows = useQuery(api.workflows.listMyWorkflows)
   const storeUser = useMutation(api.users.store)
-  const [now, setNow] = useState<string>("")
+  const createWorkflow = useMutation(api.workflows.createWorkflow)
 
-  useEffect(() => {
-    setNow(new Date().toLocaleString())
-  }, [])
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [isCreating, setIsCreating] = useState(false)
 
   // Fallback: if signed in but user not in DB, sync from Clerk
   useEffect(() => {
@@ -88,11 +93,29 @@ export default function DashboardPage() {
     }
   }, [isSignedIn, user, currentUser, storeUser])
 
-  const userInDb = currentUser !== undefined && currentUser !== null
-  const isLoadingUser = currentUser === undefined
-  if (isSignedIn == false) {
+  if (isSignedIn === false) {
     router.push("/")
     return null
+  }
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return
+
+    setIsCreating(true)
+    try {
+      await createWorkflow({
+        name: name.trim(),
+        description: description.trim() || undefined,
+      })
+      setName("")
+      setDescription("")
+      setDialogOpen(false)
+    } catch {
+      // error handled silently
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   return (
@@ -107,260 +130,145 @@ export default function DashboardPage() {
             <Badge variant="secondary">Dashboard</Badge>
           </div>
           <div className="flex items-center gap-3">
-            <UserButton  />
+            <UserButton />
             <ModeToggle />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 space-y-8 p-6">
+      <main className="mx-auto w-full max-w-5xl flex-1 space-y-6 p-6">
+        {/* Title Row */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-heading text-2xl font-bold">
-              Auth &amp; DB Test Dashboard
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Verify Clerk authentication and Convex database integration.
-            </p>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon-sm" asChild>
+              <Link href="/">
+                <ArrowLeft className="size-4" />
+              </Link>
+            </Button>
+            <div>
+              <h1 className="font-heading text-2xl font-bold">My Workflows</h1>
+              <p className="text-sm text-muted-foreground">
+                Manage your automation workflows.
+              </p>
+            </div>
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/">
-              <ArrowLeft className="size-4" />
-              Back to Home
-            </Link>
-          </Button>
+
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="size-4" />
+                Create Workflow
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <form onSubmit={handleCreate}>
+                <DialogHeader>
+                  <DialogTitle>Create Workflow</DialogTitle>
+                  <DialogDescription>
+                    Give your new workflow a name and optional description.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="wf-name">Name</Label>
+                    <Input
+                      id="wf-name"
+                      placeholder="My Workflow"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="wf-desc">Description</Label>
+                    <Input
+                      id="wf-desc"
+                      placeholder="Optional description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isCreating || !name.trim()}>
+                    {isCreating ? "Creating..." : "Create"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
-        <Separator />
-
-        {/* Status Overview */}
-        <section className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border bg-card p-5">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <KeyRound className="size-4" />
-              Clerk Auth
-            </div>
-            <div className="mt-3">
-              {isSignedIn === undefined ? (
-                <Skeleton className="h-6 w-24" />
-              ) : (
-                <StatusBadge ok={isSignedIn} label={isSignedIn ? "Authenticated" : "Not Authenticated"} />
-              )}
-            </div>
-            {user?.id && (
-              <p className="mt-2 truncate font-mono text-xs text-muted-foreground">
-                {user.id}
-              </p>
-            )}
+        {/* Workflow Table */}
+        {workflows === undefined ? (
+          <div className="space-y-3 rounded-xl border p-6">
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-3/4" />
           </div>
-
-          <div className="rounded-xl border bg-card p-5">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Database className="size-4" />
-              User in Convex DB
-            </div>
-            <div className="mt-3">
-              {isLoadingUser ? (
-                <Skeleton className="h-6 w-24" />
-              ) : (
-                <StatusBadge ok={userInDb} label={userInDb ? "Found in DB" : "Not in DB"} />
-              )}
-            </div>
-            {currentUser && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Last updated: {new Date(currentUser.updatedAt).toLocaleString()}
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-xl border bg-card p-5">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Users className="size-4" />
-              Total Users in DB
-            </div>
-            <div className="mt-3">
-              {allUsers === undefined ? (
-                <Skeleton className="h-6 w-16" />
-              ) : (
-                <span className="font-heading text-2xl font-bold">{allUsers.length}</span>
-              )}
-            </div>
-            {now && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Checked at {now}
-              </p>
-            )}
-          </div>
-        </section>
-
-        <Separator />
-
-        {/* Current User Detail */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold">
-              api.users.current Result
-            </h2>
+        ) : workflows.length === 0 ? (
+          <div className="rounded-xl border border-dashed p-12 text-center">
+            <Workflow className="mx-auto size-12 text-muted-foreground/50" />
+            <p className="mt-4 font-heading text-lg font-medium">
+              No workflows yet
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Create your first workflow to get started with automations.
+            </p>
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.location.reload()}
+              className="mt-4"
+              onClick={() => setDialogOpen(true)}
             >
-              <RefreshCw className="size-4" />
-              Refresh
+              <Plus className="size-4" />
+              Create Workflow
             </Button>
           </div>
-
-          {isLoadingUser ? (
-            <div className="space-y-3 rounded-xl border p-6">
-              <Skeleton className="h-5 w-48" />
-              <Skeleton className="h-5 w-36" />
-              <Skeleton className="h-5 w-40" />
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-5 w-44" />
-            </div>
-          ) : currentUser === null ? (
-            <div className="rounded-xl border border-dashed p-8 text-center">
-              <XCircle className="mx-auto size-10 text-muted-foreground/50" />
-              <p className="mt-3 font-heading text-base font-medium">
-                User not found in database
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                You&apos;re signed in via Clerk, but your user record hasn&apos;t been
-                created in Convex yet. The webhook may still be processing, or
-                you may need to check your webhook configuration.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-xl border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-44">Field</TableHead>
-                    <TableHead>Value</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">_id</TableCell>
-                    <TableCell className="font-mono text-xs">{currentUser._id}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">clerkUserId</TableCell>
-                    <TableCell className="font-mono text-xs">{currentUser.clerkUserId}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">email</TableCell>
-                    <TableCell>{currentUser.email}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">firstName</TableCell>
-                    <TableCell>{currentUser.firstName || "—"}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">lastName</TableCell>
-                    <TableCell>{currentUser.lastName || "—"}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">username</TableCell>
-                    <TableCell>{currentUser.username || "—"}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">imageUrl</TableCell>
+        ) : (
+          <div className="overflow-hidden rounded-xl border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {workflows.map((wf) => (
+                  <TableRow key={wf._id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <FileText className="size-4 text-muted-foreground" />
+                        {wf.name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {wf.description || "—"}
+                    </TableCell>
                     <TableCell>
-                      {currentUser.imageUrl ? (
-                        <div className="flex items-center gap-2">
-                          <Image
-                            src={currentUser.imageUrl}
-                            alt="avatar"
-                            width={24}
-                            height={24}
-                            className="rounded-full"
-                          />
-                          <span className="truncate font-mono text-xs">
-                            {currentUser.imageUrl}
-                          </span>
-                        </div>
-                      ) : (
-                        "—"
-                      )}
+                      <Badge variant={wf.isActive ? "default" : "secondary"}>
+                        {wf.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(wf.createdAt).toLocaleDateString()}
                     </TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">createdAt</TableCell>
-                    <TableCell>
-                      {new Date(currentUser.createdAt).toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">updatedAt</TableCell>
-                    <TableCell>
-                      {new Date(currentUser.updatedAt).toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </section>
-
-        <Separator />
-
-        {/* All Users */}
-        <section className="space-y-4 pb-12">
-          <h2 className="font-heading text-xl font-semibold">
-            All Users in Database (api.users.getUsers)
-          </h2>
-
-          {allUsers === undefined ? (
-            <div className="space-y-3 rounded-xl border p-6">
-              <Skeleton className="h-5 w-full" />
-              <Skeleton className="h-5 w-full" />
-              <Skeleton className="h-5 w-full" />
-            </div>
-          ) : allUsers.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-8 text-center">
-              <Database className="mx-auto size-10 text-muted-foreground/50" />
-              <p className="mt-3 font-heading text-base font-medium">
-                No users in database
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Sign up via Clerk and the webhook will create your user record.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-xl border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Username</TableHead>
-                    <TableHead>Clerk ID</TableHead>
-                    <TableHead>Created</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allUsers?.map((user: any) => (
-                    <TableRow key={user._id}>
-                      <TableCell className="font-medium">{user.email}</TableCell>
-                      <TableCell>
-                        {[user.firstName, user.lastName].filter(Boolean).join(" ") || "—"}
-                      </TableCell>
-                      <TableCell>{user.username || "—"}</TableCell>
-                      <TableCell className="max-w-32 truncate font-mono text-xs">
-                        {user.clerkUserId}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(user.createdAt).toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </section>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </main>
     </div>
   )
