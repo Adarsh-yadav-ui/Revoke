@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { DashboardSidebar } from "@/components/dashboardSidebar";
-import { DashboardNavbar } from "@/components/dashboardNavbar";
+import { DashboardShell } from "@/components/dashboardShell";
 
 export const metadata: Metadata = {
   title: "Dashboard - Revoke",
@@ -15,15 +14,5 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <div className="flex min-h-screen">
-      <DashboardSidebar />
-      <div className="flex flex-1 flex-col">
-        <DashboardNavbar />
-        <main className="flex-1 p-6 dark:bg-[#101010] bg-zinc-100">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  return <DashboardShell>{children}</DashboardShell>;
 }
