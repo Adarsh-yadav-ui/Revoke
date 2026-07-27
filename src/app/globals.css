@@ -128,3 +128,12 @@
     @apply font-sans;
   }
 }
+
+html,body{
+  height: 100%;
+}
+
+/* In globals.css */
+.sidebar-link {
+  @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-800;
+}

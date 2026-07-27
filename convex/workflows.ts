@@ -34,11 +34,11 @@ export const listMyWorkflows = query({
   },
 });
 
-export const getWorkflow = query({
-  args: { id: v.id("workflows") },
+export const getWorkflowById = query({
+  args: { workflowId: v.id("workflows") },
   handler: async (ctx, args) => {
     const user = await getCurrentUserOrThrow(ctx);
-    const workflow = await ctx.db.get(args.id);
+    const workflow = await ctx.db.get(args.workflowId);
 
     if (!workflow || workflow.userId !== user._id) {
       throw new Error("Workflow not found");
@@ -50,37 +50,37 @@ export const getWorkflow = query({
 
 export const updateWorkflow = mutation({
   args: {
-    id: v.id("workflows"),
+    workflowId: v.id("workflows"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserOrThrow(ctx);
-    const workflow = await ctx.db.get(args.id);
+    const workflow = await ctx.db.get(args.workflowId);
 
     if (!workflow || workflow.userId !== user._id) {
       throw new Error("Workflow not found");
     }
 
-    const { id, ...updates } = args;
-    await ctx.db.patch(id, { ...updates, updatedAt: Date.now() });
+    const { workflowId, ...updates } = args;
+    await ctx.db.patch(workflowId, { ...updates, updatedAt: Date.now() });
   },
 });
 
 export const setWorkflowActive = mutation({
   args: {
-    id: v.id("workflows"),
+    workflowId: v.id("workflows"),
     isActive: v.boolean(),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserOrThrow(ctx);
-    const workflow = await ctx.db.get(args.id);
+    const workflow = await ctx.db.get(args.workflowId);
 
     if (!workflow || workflow.userId !== user._id) {
       throw new Error("Workflow not found");
     }
 
-    await ctx.db.patch(args.id, {
+    await ctx.db.patch(args.workflowId, {
       isActive: args.isActive,
       updatedAt: Date.now(),
     });
@@ -88,10 +88,10 @@ export const setWorkflowActive = mutation({
 });
 
 export const deleteWorkflow = mutation({
-  args: { id: v.id("workflows") },
+  args: { workflowId: v.id("workflows") },
   handler: async (ctx, args) => {
     const user = await getCurrentUserOrThrow(ctx);
-    const workflow = await ctx.db.get(args.id);
+    const workflow = await ctx.db.get(args.workflowId);
 
     if (!workflow || workflow.userId !== user._id) {
       throw new Error("Workflow not found");
@@ -100,16 +100,16 @@ export const deleteWorkflow = mutation({
     // clean up dependent nodes + connections
     const nodes = await ctx.db
       .query("nodes")
-      .withIndex("byWorkflowId", (q) => q.eq("workflowId", args.id))
+      .withIndex("byWorkflowId", (q) => q.eq("workflowId", args.workflowId))
       .collect();
     for (const node of nodes) await ctx.db.delete(node._id);
 
     const connections = await ctx.db
       .query("connections")
-      .withIndex("byWorkflowId", (q) => q.eq("workflowId", args.id))
+      .withIndex("byWorkflowId", (q) => q.eq("workflowId", args.workflowId))
       .collect();
     for (const conn of connections) await ctx.db.delete(conn._id);
 
-    await ctx.db.delete(args.id);
+    await ctx.db.delete(args.workflowId);
   },
 });
