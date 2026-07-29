@@ -285,7 +285,7 @@ export function WorkflowManager() {
 
                   <div className="flex items-center gap-2">
                     <Button asChild size="sm">
-                      <Link href={`/workflow/${workflow._id}`}>
+                      <Link href={`/dashboard/workflows/${workflow._id}`}>
                         <ExternalLink className="mr-2 size-4" />
                         Open
                       </Link>
