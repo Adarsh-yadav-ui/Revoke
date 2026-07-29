@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUserOrThrow } from "./users";
 
@@ -155,7 +156,7 @@ export const duplicateWorkflow = mutation({
       .withIndex("byWorkflowId", (q) => q.eq("workflowId", args.workflowId))
       .collect();
 
-    const nodeIdMap = new Map<string, string>();
+    const nodeIdMap = new Map<Id<"nodes">, Id<"nodes">>();
 
     for (const node of sourceNodes) {
       const duplicatedNodeId = await ctx.db.insert("nodes", {
