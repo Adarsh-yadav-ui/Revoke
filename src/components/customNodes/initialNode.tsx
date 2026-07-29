@@ -7,11 +7,12 @@ import { WorkflowNode } from "../workflow-node";
 
 export const InitialNode = memo((props: NodeProps) => {
   return (
-    <WorkflowNode showToolbar name="Initial Node" description="Click to add a node">
-      <PlaceholderNode
-        {...props}
-        onClick={() => console.log("Initial node clicked")}
-      >
+    <WorkflowNode
+      showToolbar
+      name="Initial Node"
+      description="Click to add a node"
+    >
+      <PlaceholderNode {...props} onClick={() => {}}>
         <div className="cursor-pointer flex items-center justify-center">
           <Plus className="size-4" />
         </div>
